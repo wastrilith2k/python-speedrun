@@ -64,15 +64,18 @@ export async function streamChat(
   message: string
 ) {
   const model = getModel();
+
+  // Gemini requires history to start with a user message — drop leading assistant messages
+  const mapped = history.map((m) => ({
+    role: m.role === "assistant" ? "model" as const : "user" as const,
+    parts: [{ text: m.content }],
+  }));
+  while (mapped.length > 0 && mapped[0].role === "model") {
+    mapped.shift();
+  }
+
   const chat = model.startChat({
-    history: [
-      { role: "user", parts: [{ text: "System instructions follow." }] },
-      { role: "model", parts: [{ text: "Understood. I will follow those instructions." }] },
-      ...history.map((m) => ({
-        role: m.role === "assistant" ? "model" as const : "user" as const,
-        parts: [{ text: m.content }],
-      })),
-    ],
+    history: mapped,
     systemInstruction: systemPrompt,
   });
 
@@ -87,11 +90,18 @@ export async function chat(
   message: string
 ): Promise<GenerateContentResult> {
   const model = getModel(false);
+
+  // Gemini requires history to start with a user message — drop leading assistant messages
+  const mapped = history.map((m) => ({
+    role: m.role === "assistant" ? "model" as const : "user" as const,
+    parts: [{ text: m.content }],
+  }));
+  while (mapped.length > 0 && mapped[0].role === "model") {
+    mapped.shift();
+  }
+
   const chatSession = model.startChat({
-    history: history.map((m) => ({
-      role: m.role === "assistant" ? "model" as const : "user" as const,
-      parts: [{ text: m.content }],
-    })),
+    history: mapped,
     systemInstruction: systemPrompt,
   });
 

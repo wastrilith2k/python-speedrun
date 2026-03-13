@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { ClerkProvider } from "@clerk/nextjs";
+import GoogleAnalytics from "./components/GoogleAnalytics";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -15,7 +17,12 @@ export default function RootLayout({
   return (
     <ClerkProvider>
       <html lang="en" className="dark">
-        <body className="antialiased">{children}</body>
+        <body className="antialiased">
+          <Suspense>
+            <GoogleAnalytics />
+          </Suspense>
+          {children}
+        </body>
       </html>
     </ClerkProvider>
   );
