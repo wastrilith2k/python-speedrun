@@ -1,7 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
 import { chat } from "@/lib/ai";
-import { upsertUser, saveAssessmentData, saveCoursePlan } from "@/lib/db";
+import { upsertUser, saveAssessmentData, saveCoursePlan, ensureTables } from "@/lib/db";
 import { buildAssessmentPrompt, buildCodeProbePrompt, buildProfileGenerationPrompt, CODE_PROBES } from "@/lib/assessment";
 import { generateCoursePlan } from "@/lib/course-generator";
 import type { AssessmentRequest, AssessmentResponse, UserProfile, ChatMessage } from "@/lib/types";
@@ -10,6 +10,7 @@ export async function POST(req: NextRequest) {
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  await ensureTables();
   const body: AssessmentRequest = await req.json();
 
   // Phase: Generate profile + course plan from completed assessment

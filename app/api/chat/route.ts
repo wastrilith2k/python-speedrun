@@ -1,7 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextRequest } from "next/server";
 import { streamChat, prepareHistory } from "@/lib/ai";
-import { getUser, getChatMessages, saveChatMessage, getCoursePlan } from "@/lib/db";
+import { getUser, getChatMessages, saveChatMessage, getCoursePlan, ensureTables } from "@/lib/db";
 import { buildTeachingPrompt, buildTopicIntroMessage } from "@/lib/prompts";
 import { TOPIC_POOL } from "@/lib/topic-pool";
 import { searchTopicResources } from "@/lib/zep";
@@ -12,6 +12,7 @@ export async function POST(req: NextRequest) {
   if (!userId) {
     return new Response("Unauthorized", { status: 401 });
   }
+  await ensureTables();
 
   const body: ChatRequest = await req.json();
   const { topicId, message, codeSubmission } = body;

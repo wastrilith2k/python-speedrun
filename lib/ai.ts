@@ -76,7 +76,7 @@ export async function streamChat(
 
   const chat = model.startChat({
     history: mapped,
-    systemInstruction: systemPrompt,
+    systemInstruction: { role: "user", parts: [{ text: systemPrompt }] },
   });
 
   const result = await chat.sendMessageStream(message);
@@ -102,7 +102,7 @@ export async function chat(
 
   const chatSession = model.startChat({
     history: mapped,
-    systemInstruction: systemPrompt,
+    systemInstruction: { role: "user", parts: [{ text: systemPrompt }] },
   });
 
   return chatSession.sendMessage(message);

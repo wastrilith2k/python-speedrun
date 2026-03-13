@@ -1,6 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
-import { getUser, getCoursePlan, getTopicProgress, saveCoursePlan } from "@/lib/db";
+import { getUser, getCoursePlan, getTopicProgress, saveCoursePlan, ensureTables } from "@/lib/db";
 import { generateCoursePlan } from "@/lib/course-generator";
 
 // GET — fetch user's current course plan + progress
@@ -8,6 +8,7 @@ export async function GET() {
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  await ensureTables();
   const [profile, plan] = await Promise.all([
     getUser(userId),
     getCoursePlan(userId),

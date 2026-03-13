@@ -1,13 +1,14 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
 import { chat } from "@/lib/ai";
-import { saveCodeSubmission } from "@/lib/db";
+import { saveCodeSubmission, ensureTables } from "@/lib/db";
 import { CHALLENGES } from "@/lib/challenges";
 
 export async function POST(req: NextRequest) {
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  await ensureTables();
   const body = await req.json();
   const { challengeId, code, output, topicId } = body;
 
