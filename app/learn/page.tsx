@@ -7,7 +7,7 @@ import AssessmentChat from "./components/AssessmentChat";
 import CoursePlanView from "./components/CoursePlanView";
 import LearningInterface from "./components/LearningInterface";
 
-type AppState = "loading" | "assessment" | "course_review" | "learning";
+type AppState = "loading" | "assessment" | "course_review" | "learning" | "error";
 
 export default function LearnPage() {
   const { user } = useUser();
@@ -34,7 +34,7 @@ export default function LearnPage() {
       // No course plan — start assessment
       setAppState("assessment");
     } catch {
-      setAppState("assessment");
+      setAppState("error");
     }
   }, [user?.id]);
 
@@ -86,6 +86,22 @@ export default function LearnPage() {
           <div className="loading-dot w-2 h-2 rounded-full bg-[var(--accent)]" />
           <div className="loading-dot w-2 h-2 rounded-full bg-[var(--accent)]" />
           <div className="loading-dot w-2 h-2 rounded-full bg-[var(--accent)]" />
+        </div>
+      </div>
+    );
+  }
+
+  if (appState === "error") {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-[var(--muted)] mb-4">Something went wrong loading your data.</p>
+          <button
+            onClick={() => { setAppState("loading"); loadUserData(); }}
+            className="px-4 py-2 bg-[var(--accent)] hover:bg-[var(--accent-hover)] rounded-lg text-sm font-medium transition-colors"
+          >
+            Retry
+          </button>
         </div>
       </div>
     );

@@ -1,4 +1,4 @@
-import { SignInButton, Show } from "@clerk/nextjs";
+import { SignInButton, Show, UserButton } from "@clerk/nextjs";
 import Link from "next/link";
 
 export default function Home() {
@@ -18,12 +18,15 @@ export default function Home() {
             </SignInButton>
           </Show>
           <Show when="signed-in">
-            <Link
-              href="/learn"
-              className="px-4 py-2 bg-[var(--accent)] hover:bg-[var(--accent-hover)] rounded-lg text-sm font-medium transition-colors"
-            >
-              Start Learning
-            </Link>
+            <div className="flex items-center gap-3">
+              <Link
+                href="/learn"
+                className="px-4 py-2 bg-[var(--accent)] hover:bg-[var(--accent-hover)] rounded-lg text-sm font-medium transition-colors"
+              >
+                Start Learning
+              </Link>
+              <UserButton />
+            </div>
           </Show>
         </div>
       </nav>

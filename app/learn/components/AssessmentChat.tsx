@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { UserButton } from "@clerk/nextjs";
 import type { ChatMessage, UserProfile, CoursePlan, AssessmentResponse } from "@/lib/types";
 
 interface Props {
@@ -79,10 +80,13 @@ export default function AssessmentChat({ onComplete }: Props) {
     <div className="min-h-screen flex flex-col max-w-3xl mx-auto px-4">
       {/* Header */}
       <div className="py-6 border-b border-[var(--border)]">
-        <h1 className="text-xl font-bold">
-          <span className="text-[var(--accent)]">py</span>speedrun
-          <span className="text-[var(--muted)] text-sm font-normal ml-3">Assessment</span>
-        </h1>
+        <div className="flex items-center justify-between">
+          <h1 className="text-xl font-bold">
+            <span className="text-[var(--accent)]">py</span>speedrun
+            <span className="text-[var(--muted)] text-sm font-normal ml-3">Assessment</span>
+          </h1>
+          <UserButton />
+        </div>
         <p className="text-sm text-[var(--muted)] mt-1">
           {phase === "conversation" && "Getting to know your background..."}
           {phase === "code_probe" && "Testing your Python skills with some code challenges..."}
