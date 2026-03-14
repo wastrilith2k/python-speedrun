@@ -14,7 +14,7 @@ export async function generateCoursePlan(profile: UserProfile): Promise<CoursePl
   const prompt = buildCourseGenerationPrompt(profile, zepContext);
 
   const result = await chat(prompt, [], "Generate the course plan now.");
-  const text = result.response.text();
+  const text = result.choices[0]?.message?.content || "";
 
   // Extract JSON from response
   const jsonMatch = text.match(/\[[\s\S]*\]/);

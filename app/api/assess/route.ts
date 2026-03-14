@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
       );
 
       const result = await chat(profilePrompt, [], "Generate the user profile now.");
-      const text = result.response.text();
+      const text = result.choices[0]?.message?.content || "";
 
       // Extract JSON profile
       const jsonMatch = text.match(/\{[\s\S]*\}/);
@@ -77,7 +77,7 @@ export async function POST(req: NextRequest) {
   try {
     const systemPrompt = buildAssessmentPrompt(body.history);
     const result = await chat(systemPrompt, body.history, body.message);
-    const reply = result.response.text();
+    const reply = result.choices[0]?.message?.content || "";
 
     // Determine next phase based on AI response
     let nextPhase: AssessmentResponse["phase"] = body.phase === "code_probe" ? "code_probe" : "conversation";
@@ -98,7 +98,7 @@ export async function POST(req: NextRequest) {
       );
 
       const profileResult = await chat(profilePrompt, [], "Generate the user profile now.");
-      const profileText = profileResult.response.text();
+      const profileText = profileResult.choices[0]?.message?.content || "";
       const jsonMatch = profileText.match(/\{[\s\S]*\}/);
 
       if (jsonMatch) {

@@ -81,27 +81,37 @@ export async function POST(req: NextRequest) {
         const result = await streamChat(systemPrompt, trimmedHistory, fullMessage);
         let fullContent = "";
 
-        for await (const chunk of result.stream) {
-          const text = chunk.text();
-          if (text) {
-            fullContent += text;
+        for await (const chunk of result) {
+          const delta = chunk.choices[0]?.delta;
+          if (!delta) continue;
+
+          // Text content
+          if (delta.content) {
+            fullContent += delta.content;
             controller.enqueue(
-              encoder.encode(`data: ${JSON.stringify({ type: "text", content: text })}\n\n`)
+              encoder.encode(`data: ${JSON.stringify({ type: "text", content: delta.content })}\n\n`)
             );
           }
 
-          // Check for function calls
-          if (chunk.functionCalls()) {
-            for (const fc of chunk.functionCalls()!) {
-              controller.enqueue(
-                encoder.encode(
-                  `data: ${JSON.stringify({
-                    type: "function_call",
-                    name: fc.name,
-                    args: fc.args,
-                  })}\n\n`
-                )
-              );
+          // Tool calls (function calling)
+          if (delta.tool_calls) {
+            for (const tc of delta.tool_calls) {
+              if (tc.function?.name && tc.function?.arguments) {
+                try {
+                  const args = JSON.parse(tc.function.arguments);
+                  controller.enqueue(
+                    encoder.encode(
+                      `data: ${JSON.stringify({
+                        type: "function_call",
+                        name: tc.function.name,
+                        args,
+                      })}\n\n`
+                    )
+                  );
+                } catch {
+                  // Arguments may be streamed in chunks; skip partial parses
+                }
+              }
             }
           }
         }

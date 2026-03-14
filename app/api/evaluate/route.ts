@@ -49,7 +49,7 @@ Return ONLY the JSON object.`;
 
   try {
     const result = await chat(prompt, [], "Evaluate the submission now.");
-    const text = result.response.text();
+    const text = result.choices[0]?.message?.content || "";
 
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
