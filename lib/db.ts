@@ -80,6 +80,13 @@ export function ensureTables() {
         raw_profile TEXT,
         created_at TEXT DEFAULT (datetime('now'))
       );
+      CREATE TABLE IF NOT EXISTS assessment_messages (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id TEXT NOT NULL,
+        role TEXT NOT NULL,
+        content TEXT NOT NULL,
+        created_at TEXT DEFAULT (datetime('now'))
+      );
     `).catch((err) => {
       console.error("Migration failed:", err);
       migrated = null; // Allow retry on next request
@@ -254,6 +261,31 @@ export async function saveCodeSubmission(
 }
 
 // ─── Assessment Data ─────────────────────────────────────
+
+export async function saveAssessmentMessage(userId: string, role: string, content: string): Promise<void> {
+  await db.execute({
+    sql: "INSERT INTO assessment_messages (user_id, role, content) VALUES (?, ?, ?)",
+    args: [userId, role, content],
+  });
+}
+
+export async function getAssessmentMessages(userId: string): Promise<ChatMessage[]> {
+  const result = await db.execute({
+    sql: "SELECT * FROM assessment_messages WHERE user_id = ? ORDER BY created_at ASC",
+    args: [userId],
+  });
+  return result.rows.map((row) => ({
+    role: row.role as ChatMessage["role"],
+    content: row.content as string,
+  }));
+}
+
+export async function clearAssessmentMessages(userId: string): Promise<void> {
+  await db.execute({
+    sql: "DELETE FROM assessment_messages WHERE user_id = ?",
+    args: [userId],
+  });
+}
 
 export async function saveAssessmentData(userId: string, data: AssessmentData): Promise<void> {
   await db.execute({
