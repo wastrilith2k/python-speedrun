@@ -9,19 +9,44 @@ interface Props {
 }
 
 export default function AssessmentChat({ onComplete }: Props) {
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      role: "assistant",
-      content:
-        "Hey! I'm going to ask you a few questions to build you a custom Python course. No generic intro-to-programming stuff — this is for devs who already know how to code.\n\nWhat's your programming background? What languages and frameworks do you use day-to-day?",
-    },
-  ]);
+  const introMessage: ChatMessage = {
+    role: "assistant",
+    content:
+      "Hey! I'm going to ask you a few questions to build you a custom Python course. No generic intro-to-programming stuff — this is for devs who already know how to code.\n\nWhat's your programming background? What languages and frameworks do you use day-to-day?",
+  };
+  const [messages, setMessages] = useState<ChatMessage[]>([introMessage]);
   const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [phase, setPhase] = useState<"conversation" | "code_probe" | "complete">("conversation");
   const [probeResults, setProbeResults] = useState<Record<string, { passed: boolean; response: string }>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // Load saved assessment messages on mount
+  useEffect(() => {
+    async function loadSaved() {
+      try {
+        const res = await fetch("/api/assess");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.messages && data.messages.length > 0) {
+            setMessages([introMessage, ...data.messages]);
+            // Determine phase from message count
+            if (data.messages.length >= 16) {
+              setPhase("code_probe");
+            } else if (data.messages.length >= 8) {
+              setPhase("code_probe");
+            }
+          }
+        }
+      } catch {
+        // Continue with fresh assessment
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadSaved();
+  }, []);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });

@@ -1,10 +1,20 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
 import { chat } from "@/lib/ai";
-import { upsertUser, saveAssessmentData, saveCoursePlan, ensureTables } from "@/lib/db";
+import { upsertUser, saveAssessmentData, saveCoursePlan, saveChatMessage, getChatMessages, ensureTables } from "@/lib/db";
 import { buildAssessmentPrompt, buildCodeProbePrompt, buildProfileGenerationPrompt, CODE_PROBES } from "@/lib/assessment";
 import { generateCoursePlan } from "@/lib/course-generator";
 import type { AssessmentRequest, AssessmentResponse, UserProfile, ChatMessage } from "@/lib/types";
+
+// GET — load saved assessment conversation for resume
+export async function GET() {
+  const { userId } = await auth();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  await ensureTables();
+  const messages = await getChatMessages(userId, "__assessment__");
+  return NextResponse.json({ messages });
+}
 
 export async function POST(req: NextRequest) {
   const { userId } = await auth();
@@ -73,11 +83,17 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // Save user message to DB
+  await saveChatMessage(userId, "__assessment__", { role: "user", content: body.message });
+
   // Phase: Conversational assessment or code probes
   try {
     const systemPrompt = buildAssessmentPrompt(body.history);
     const result = await chat(systemPrompt, body.history, body.message);
     const reply = result.choices[0]?.message?.content || "";
+
+    // Save assistant reply to DB
+    await saveChatMessage(userId, "__assessment__", { role: "assistant", content: reply });
 
     // Determine next phase based on AI response
     let nextPhase: AssessmentResponse["phase"] = body.phase === "code_probe" ? "code_probe" : "conversation";
