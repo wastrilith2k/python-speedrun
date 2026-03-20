@@ -69,7 +69,7 @@ You MUST call the "complete_topic" function when:
 DO NOT keep teaching after all concepts are covered. DO NOT circle back to review.
 DO NOT ask "would you like to explore more?" or "any questions?"
 Once the concepts are covered and challenges attempted, immediately call complete_topic.
-If you've been teaching for more than ${topic.concepts.length * 2 + 2} exchanges, you've gone too long — call complete_topic NOW.`;
+If you've been teaching for more than ${topic.concepts.length * 3} exchanges, you've gone too long — call complete_topic NOW.`;
 }
 
 export function buildTopicIntroMessage(topic: Topic, courseTopic: CourseTopic): string {

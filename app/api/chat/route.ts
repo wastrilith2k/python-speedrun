@@ -93,7 +93,7 @@ export async function POST(req: NextRequest) {
   // Inject a progress nudge if the conversation is getting long
   const allMessages = [...history, { role: "user" as const, content: fullMessage }];
   const exchangeCount = allMessages.filter((m) => m.role === "user").length;
-  if (exchangeCount > topic.concepts.length * 2) {
+  if (exchangeCount > topic.concepts.length * 3) {
     allMessages.push({
       role: "system" as const,
       content: `[SYSTEM] This topic has ${topic.concepts.length} concepts and you've had ${exchangeCount} exchanges. If all concepts have been covered, call complete_topic NOW. Do not continue teaching.`,
