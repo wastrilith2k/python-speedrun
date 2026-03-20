@@ -4,6 +4,8 @@ import { chat } from "@/lib/ai";
 import { saveCodeSubmission, ensureTables } from "@/lib/db";
 import { CHALLENGES } from "@/lib/challenges";
 
+export const maxDuration = 60;
+
 export async function POST(req: NextRequest) {
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

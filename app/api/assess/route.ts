@@ -6,6 +6,8 @@ import { buildAssessmentPrompt, buildCodeProbePrompt, buildProfileGenerationProm
 import { generateCoursePlan } from "@/lib/course-generator";
 import type { AssessmentRequest, AssessmentResponse, UserProfile, ChatMessage } from "@/lib/types";
 
+export const maxDuration = 60;
+
 // GET — load saved assessment conversation for resume
 export async function GET() {
   const { userId } = await auth();

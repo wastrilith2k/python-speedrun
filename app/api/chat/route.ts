@@ -7,6 +7,8 @@ import { TOPIC_POOL } from "@/lib/topic-pool";
 import { searchTopicResources } from "@/lib/zep";
 import type { ChatRequest, ChatMessage } from "@/lib/types";
 
+export const maxDuration = 60;
+
 export async function GET(req: NextRequest) {
   const { userId } = await auth();
   if (!userId) {
@@ -97,6 +99,9 @@ export async function POST(req: NextRequest) {
         const result = await streamChat(systemPrompt, trimmedHistory, fullMessage);
         let fullContent = "";
 
+        // Buffer tool call arguments (they arrive in chunks)
+        const toolCallBuffers: Record<number, { name: string; args: string }> = {};
+
         for await (const chunk of result) {
           const delta = chunk.choices[0]?.delta;
           if (!delta) continue;
@@ -109,24 +114,36 @@ export async function POST(req: NextRequest) {
             );
           }
 
-          // Tool calls (function calling)
+          // Tool calls (function calling) — accumulate streamed chunks
           if (delta.tool_calls) {
             for (const tc of delta.tool_calls) {
-              if (tc.function?.name && tc.function?.arguments) {
-                try {
-                  const args = JSON.parse(tc.function.arguments);
-                  controller.enqueue(
-                    encoder.encode(
-                      `data: ${JSON.stringify({
-                        type: "function_call",
-                        name: tc.function.name,
-                        args,
-                      })}\n\n`
-                    )
-                  );
-                } catch {
-                  // Arguments may be streamed in chunks; skip partial parses
-                }
+              const idx = tc.index ?? 0;
+              if (tc.function?.name) {
+                toolCallBuffers[idx] = { name: tc.function.name, args: "" };
+              }
+              if (tc.function?.arguments && toolCallBuffers[idx]) {
+                toolCallBuffers[idx].args += tc.function.arguments;
+              }
+            }
+          }
+
+          // Check finish reason to emit completed tool calls
+          const finishReason = chunk.choices[0]?.finish_reason;
+          if (finishReason === "tool_calls" || finishReason === "stop") {
+            for (const buf of Object.values(toolCallBuffers)) {
+              try {
+                const args = JSON.parse(buf.args);
+                controller.enqueue(
+                  encoder.encode(
+                    `data: ${JSON.stringify({
+                      type: "function_call",
+                      name: buf.name,
+                      args,
+                    })}\n\n`
+                  )
+                );
+              } catch {
+                console.error("Failed to parse tool call args:", buf);
               }
             }
           }
