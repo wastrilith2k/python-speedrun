@@ -10,7 +10,7 @@ const openai = new OpenAI({
   },
 });
 
-const MODEL = "openrouter/free";
+const MODEL = "nvidia/nemotron-3-nano-30b-a3b:free";
 
 // Function declarations for structured AI responses (OpenAI tool format)
 export const AI_TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
@@ -125,21 +125,44 @@ export async function chat(
   return result;
 }
 
-// Prepare conversation history — summarize if too long
-export function prepareHistory(messages: ChatMessage[]): ChatMessage[] {
-  if (messages.length <= 10) return messages;
+// Compress chat history into a concise summary via LLM
+export async function compressHistory(messages: ChatMessage[]): Promise<string> {
+  const transcript = messages
+    .map((m) => `${m.role}: ${m.content}`)
+    .join("\n\n");
 
-  const intro = messages.slice(0, 2);
-  const recent = messages.slice(-8);
-  const middle = messages.slice(2, -8);
+  const result = await openai.chat.completions.create({
+    model: MODEL,
+    messages: [
+      {
+        role: "system",
+        content: `You are a conversation summarizer for a Python tutoring app. Compress the following conversation into a concise summary that preserves:
+- What concepts were taught
+- What the student understood vs struggled with
+- What challenges were attempted and their outcomes
+- The student's current skill level for this topic
+Keep it under 300 words. Be factual and specific.`,
+      },
+      { role: "user", content: transcript },
+    ],
+  });
 
-  if (middle.length > 0) {
-    const summary: ChatMessage = {
-      role: "system",
-      content: `[Earlier: ${middle.length} messages. The student has been working through the topic progressively.]`,
-    };
-    return [...intro, summary, ...recent];
+  return result.choices[0]?.message?.content || "";
+}
+
+// Build history for the LLM: compressed summary + recent messages
+export function prepareHistory(messages: ChatMessage[], compressedSummary?: string | null): ChatMessage[] {
+  if (!compressedSummary) {
+    // No compression yet — just use recent messages to stay within context
+    if (messages.length <= 6) return messages;
+    return [messages[0], ...messages.slice(-5)];
   }
 
-  return [...intro, ...recent];
+  // Use compressed summary + last 4 messages
+  const recent = messages.slice(-4);
+  const summary: ChatMessage = {
+    role: "system",
+    content: `[Previous conversation summary]\n${compressedSummary}`,
+  };
+  return [summary, ...recent];
 }

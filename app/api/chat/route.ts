@@ -1,7 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextRequest } from "next/server";
-import { streamChat, prepareHistory } from "@/lib/ai";
-import { getUser, getChatMessages, saveChatMessage, getCoursePlan, ensureTables } from "@/lib/db";
+import { streamChat, prepareHistory, compressHistory } from "@/lib/ai";
+import { getUser, getChatMessages, saveChatMessage, getCoursePlan, getChatSummary, saveChatSummary, ensureTables } from "@/lib/db";
 import { buildTeachingPrompt, buildTopicIntroMessage } from "@/lib/prompts";
 import { TOPIC_POOL } from "@/lib/topic-pool";
 import { searchTopicResources } from "@/lib/zep";
@@ -56,8 +56,11 @@ export async function POST(req: NextRequest) {
     return new Response("Topic not in course plan", { status: 404 });
   }
 
-  // Load chat history
-  const existingMessages = await getChatMessages(userId, topicId);
+  // Load chat history and compressed summary
+  const [existingMessages, chatSummary] = await Promise.all([
+    getChatMessages(userId, topicId),
+    getChatSummary(userId, topicId),
+  ]);
 
   // If this is the first message for this topic, add an intro
   let history: ChatMessage[] = existingMessages;
@@ -87,8 +90,11 @@ export async function POST(req: NextRequest) {
   // Save user message
   await saveChatMessage(userId, topicId, { role: "user", content: fullMessage });
 
-  // Prepare trimmed history
-  const trimmedHistory = prepareHistory([...history, { role: "user", content: fullMessage }]);
+  // Prepare trimmed history using compressed summary if available
+  const trimmedHistory = prepareHistory(
+    [...history, { role: "user", content: fullMessage }],
+    chatSummary?.summary
+  );
 
   // Stream the response
   const encoder = new TextEncoder();
@@ -156,6 +162,20 @@ export async function POST(req: NextRequest) {
 
         controller.enqueue(encoder.encode("data: [DONE]\n\n"));
         controller.close();
+
+        // Compress history in background if it's getting long
+        const totalMessages = history.length + 2; // +user +assistant
+        const lastCompressed = chatSummary?.messageCount || 0;
+        if (totalMessages - lastCompressed >= 8) {
+          // Get messages since last compression
+          const allMessages = await getChatMessages(userId, topicId);
+          const toCompress = chatSummary?.summary
+            ? [{ role: "system" as const, content: `[Prior summary]: ${chatSummary.summary}` }, ...allMessages.slice(lastCompressed)]
+            : allMessages;
+          compressHistory(toCompress)
+            .then((summary) => saveChatSummary(userId, topicId, summary, allMessages.length))
+            .catch((err) => console.error("Compression failed:", err));
+        }
       } catch (err) {
         console.error("Chat stream error:", err);
         controller.enqueue(

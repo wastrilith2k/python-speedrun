@@ -87,6 +87,15 @@ export function ensureTables() {
         content TEXT NOT NULL,
         created_at TEXT DEFAULT (datetime('now'))
       );
+      CREATE TABLE IF NOT EXISTS chat_summary (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id TEXT NOT NULL,
+        topic_id TEXT NOT NULL,
+        summary TEXT NOT NULL,
+        message_count INTEGER DEFAULT 0,
+        updated_at TEXT DEFAULT (datetime('now')),
+        UNIQUE(user_id, topic_id)
+      );
     `).catch((err) => {
       console.error("Migration failed:", err);
       migrated = null; // Allow retry on next request
@@ -245,6 +254,32 @@ export async function saveChatMessage(userId: string, topicId: string, message: 
   await db.execute({
     sql: "INSERT INTO chat_messages (user_id, topic_id, role, content, function_call) VALUES (?, ?, ?, ?, ?)",
     args: [userId, topicId, message.role, message.content, message.function_call ?? null],
+  });
+}
+
+// ─── Chat Summary ───────────────────────────────────────
+
+export async function getChatSummary(userId: string, topicId: string): Promise<{ summary: string; messageCount: number } | null> {
+  const result = await db.execute({
+    sql: "SELECT summary, message_count FROM chat_summary WHERE user_id = ? AND topic_id = ?",
+    args: [userId, topicId],
+  });
+  if (result.rows.length === 0) return null;
+  return {
+    summary: result.rows[0].summary as string,
+    messageCount: result.rows[0].message_count as number,
+  };
+}
+
+export async function saveChatSummary(userId: string, topicId: string, summary: string, messageCount: number): Promise<void> {
+  await db.execute({
+    sql: `INSERT INTO chat_summary (user_id, topic_id, summary, message_count)
+          VALUES (?, ?, ?, ?)
+          ON CONFLICT(user_id, topic_id) DO UPDATE SET
+            summary = excluded.summary,
+            message_count = excluded.message_count,
+            updated_at = datetime('now')`,
+    args: [userId, topicId, summary, messageCount],
   });
 }
 
