@@ -104,6 +104,7 @@ export async function streamChat(
     messages,
     tools: AI_TOOLS,
     stream: true,
+    ...({ reasoning: { effort: "none" } } as Record<string, unknown>),
   });
 
   return stream;
@@ -120,6 +121,7 @@ export async function chat(
   const result = await openai.chat.completions.create({
     model: MODEL,
     messages,
+    ...({ reasoning: { effort: "none" } } as Record<string, unknown>),
   });
 
   return result;
@@ -145,6 +147,7 @@ Keep it under 300 words. Be factual and specific.`,
       },
       { role: "user", content: transcript },
     ],
+    ...({ reasoning: { effort: "none" } } as Record<string, unknown>),
   });
 
   return result.choices[0]?.message?.content || "";
