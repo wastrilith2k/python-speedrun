@@ -47,13 +47,9 @@ export default function LearningInterface({ plan, profile, progress, onTopicComp
       setLastRunResult(result);
 
       if (chatRef.current && currentCode) {
-        chatRef.current.sendMessage(
-          `I ran my code. Here's the result:\n\`\`\`\n${result.output || result.error || "No output"}\n\`\`\``,
-          {
-            code: currentCode,
-            output: result.output || result.error || "",
-            challengeId: "",
-          }
+        chatRef.current.stageCodeResult(
+          currentCode,
+          result.output || result.error || "No output"
         );
       }
     },

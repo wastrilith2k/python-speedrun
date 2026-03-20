@@ -5,6 +5,7 @@ import type { ChatMessage, RunResult } from "@/lib/types";
 
 export interface ChatPaneHandle {
   sendMessage: (msg: string, sub?: { code: string; output: string; challengeId: string }) => Promise<void>;
+  stageCodeResult: (code: string, output: string) => void;
 }
 
 interface Props {
@@ -18,6 +19,7 @@ const ChatPane = forwardRef<ChatPaneHandle, Props>(function ChatPane({ topicId, 
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [streamingContent, setStreamingContent] = useState("");
+  const [stagedCode, setStagedCode] = useState<{ code: string; output: string } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -116,8 +118,13 @@ const ChatPane = forwardRef<ChatPaneHandle, Props>(function ChatPane({ topicId, 
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!input.trim()) return;
-    sendMessage(input.trim());
+    if (!input.trim() && !stagedCode) return;
+    const msg = input.trim() || "Here's my code and output.";
+    const sub = stagedCode
+      ? { code: stagedCode.code, output: stagedCode.output, challengeId: "" }
+      : undefined;
+    setStagedCode(null);
+    sendMessage(msg, sub);
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
@@ -127,8 +134,14 @@ const ChatPane = forwardRef<ChatPaneHandle, Props>(function ChatPane({ topicId, 
     }
   }
 
-  // Expose sendMessage to parent via ref
-  useImperativeHandle(ref, () => ({ sendMessage }), [sendMessage]);
+  // Expose sendMessage and stageCodeResult to parent via ref
+  useImperativeHandle(ref, () => ({
+    sendMessage,
+    stageCodeResult: (code: string, output: string) => {
+      setStagedCode({ code, output });
+      inputRef.current?.focus();
+    },
+  }), [sendMessage]);
 
   return (
     <div className="flex flex-col h-full">
@@ -173,21 +186,36 @@ const ChatPane = forwardRef<ChatPaneHandle, Props>(function ChatPane({ topicId, 
       </div>
 
       {/* Input */}
-      <form onSubmit={handleSubmit} className="p-4 border-t border-[var(--border)]">
-        <div className="flex gap-2">
+      <form onSubmit={handleSubmit} className="border-t border-[var(--border)]">
+        {stagedCode && (
+          <div className="px-4 pt-3 pb-1 flex items-center gap-2 text-xs">
+            <span className="bg-[var(--success)]/20 text-[var(--success)] px-2 py-1 rounded font-mono">
+              Code output ready
+            </span>
+            <span className="text-[var(--muted)]">Type your explanation and send, or just hit Send</span>
+            <button
+              type="button"
+              onClick={() => setStagedCode(null)}
+              className="ml-auto text-[var(--muted)] hover:text-[var(--foreground)]"
+            >
+              dismiss
+            </button>
+          </div>
+        )}
+        <div className="flex gap-2 p-4 pt-2">
           <textarea
             ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Ask a question or respond to a challenge..."
+            placeholder={stagedCode ? "Add your explanation..." : "Ask a question or respond to a challenge..."}
             rows={2}
             className="flex-1 bg-[var(--surface)] border border-[var(--border)] rounded-lg px-4 py-3 text-sm resize-none focus:outline-none focus:border-[var(--accent)]"
             disabled={loading}
           />
           <button
             type="submit"
-            disabled={loading || !input.trim()}
+            disabled={loading || (!input.trim() && !stagedCode)}
             className="px-4 py-2 bg-[var(--accent)] hover:bg-[var(--accent-hover)] disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-sm font-medium transition-colors self-end"
           >
             Send
