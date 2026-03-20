@@ -10,7 +10,7 @@ const openai = new OpenAI({
   },
 });
 
-const MODEL = "openrouter/hunter-alpha";
+const MODEL = "openrouter/free";
 
 // Function declarations for structured AI responses (OpenAI tool format)
 export const AI_TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
