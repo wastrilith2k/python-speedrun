@@ -72,15 +72,18 @@ const ChatPane = forwardRef<ChatPaneHandle, Props>(function ChatPane({ topicId, 
 
         const decoder = new TextDecoder();
         let fullContent = "";
+        let lineBuf = "";
 
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
 
-          const chunk = decoder.decode(value, { stream: true });
-          const lines = chunk.split("\n");
+          lineBuf += decoder.decode(value, { stream: true });
+          const parts = lineBuf.split("\n");
+          // Keep the last part as buffer (may be incomplete)
+          lineBuf = parts.pop() || "";
 
-          for (const line of lines) {
+          for (const line of parts) {
             if (!line.startsWith("data: ")) continue;
             const data = line.slice(6);
             if (data === "[DONE]") continue;
@@ -91,6 +94,7 @@ const ChatPane = forwardRef<ChatPaneHandle, Props>(function ChatPane({ topicId, 
                 fullContent += parsed.content;
                 setStreamingContent(fullContent);
               } else if (parsed.type === "function_call") {
+                console.log("[SSE] function_call received:", parsed.name, parsed.args);
                 onFunctionCall?.(parsed.name, parsed.args);
               }
             } catch {
