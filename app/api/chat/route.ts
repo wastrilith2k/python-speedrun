@@ -140,10 +140,10 @@ export async function POST(req: NextRequest) {
             }
           }
 
-          // Check finish reason to emit completed tool calls
+          // Check finish reason to emit completed tool calls (once only)
           const finishReason = chunk.choices[0]?.finish_reason;
-          if (finishReason === "tool_calls" || finishReason === "stop") {
-            for (const buf of Object.values(toolCallBuffers)) {
+          if ((finishReason === "tool_calls" || finishReason === "stop") && Object.keys(toolCallBuffers).length > 0) {
+            for (const [idx, buf] of Object.entries(toolCallBuffers)) {
               try {
                 const args = JSON.parse(buf.args);
                 controller.enqueue(
@@ -158,6 +158,10 @@ export async function POST(req: NextRequest) {
               } catch {
                 console.error("Failed to parse tool call args:", buf);
               }
+            }
+            // Clear buffers so we don't emit twice
+            for (const key of Object.keys(toolCallBuffers)) {
+              delete toolCallBuffers[Number(key)];
             }
           }
         }

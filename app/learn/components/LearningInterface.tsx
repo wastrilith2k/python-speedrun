@@ -33,6 +33,7 @@ export default function LearningInterface({ plan, profile, progress, onTopicComp
     setCurrentTopicId(topicId);
     setCurrentCode("");
     setLastRunResult(null);
+    setTopicCompleted(null);
 
     // Mark as in_progress if available
     fetch("/api/progress", {
@@ -56,18 +57,24 @@ export default function LearningInterface({ plan, profile, progress, onTopicComp
     [currentCode]
   );
 
+  const [topicCompleted, setTopicCompleted] = useState<{ score: number; assessment: string } | null>(null);
+
   const handleFunctionCall = useCallback(
     (name: string, args: Record<string, unknown>) => {
+      console.log("[FunctionCall]", name, args);
       if (name === "complete_topic" && currentTopicId) {
-        // Update progress
+        const score = (args.score as number) || 0;
+        const assessment = (args.assessment as string) || "";
+        setTopicCompleted({ score, assessment });
+
         fetch("/api/progress", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             topicId: currentTopicId,
             status: "completed",
-            score: args.score,
-            assessment: args.assessment,
+            score,
+            assessment,
             struggles: args.struggles,
           }),
         })
@@ -75,27 +82,12 @@ export default function LearningInterface({ plan, profile, progress, onTopicComp
           .then((data) => {
             if (data.progress) {
               onTopicComplete(currentTopicId!, data.progress);
-
-              // Auto-advance to next topic after a brief delay
-              setTimeout(() => {
-                const nextTopic = plan.topics.find(
-                  (t) =>
-                    t.topic_id !== currentTopicId &&
-                    (data.progress.find(
-                      (p: TopicProgress) => p.topic_id === t.topic_id
-                    )?.status === "available" ||
-                      t.status === "available")
-                );
-                if (nextTopic) {
-                  handleSelectTopic(nextTopic.topic_id);
-                }
-              }, 2000);
             }
           })
-          .catch(() => {});
+          .catch((err) => console.error("Progress update failed:", err));
       }
     },
-    [currentTopicId, plan.topics, onTopicComplete, handleSelectTopic]
+    [currentTopicId, onTopicComplete]
   );
 
   return (
@@ -113,7 +105,32 @@ export default function LearningInterface({ plan, profile, progress, onTopicComp
       {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0 min-h-0">
         {currentTopicId ? (
-          <div className="flex-1 flex min-h-0">
+          <div className="flex-1 flex min-h-0 flex-col">
+            {topicCompleted && (
+              <div className="px-4 py-3 bg-[var(--success)]/10 border-b border-[var(--success)]/30 flex items-center justify-between">
+                <div className="text-sm">
+                  <span className="font-semibold text-[var(--success)]">Topic complete!</span>
+                  <span className="text-[var(--muted)] ml-2">Score: {topicCompleted.score}/100</span>
+                  {topicCompleted.assessment && (
+                    <span className="text-[var(--muted)] ml-2">— {topicCompleted.assessment}</span>
+                  )}
+                </div>
+                <button
+                  onClick={() => {
+                    const nextTopic = plan.topics.find((t) => {
+                      if (t.topic_id === currentTopicId) return false;
+                      const prog = progress.find((p) => p.topic_id === t.topic_id);
+                      return prog?.status === "available" || (!prog && t.status === "available");
+                    });
+                    if (nextTopic) handleSelectTopic(nextTopic.topic_id);
+                  }}
+                  className="px-3 py-1.5 bg-[var(--success)] text-black rounded text-xs font-medium hover:opacity-90 transition-opacity"
+                >
+                  Next Topic
+                </button>
+              </div>
+            )}
+            <div className="flex-1 flex min-h-0">
             {/* Chat + Resources (left) */}
             <div className="flex-1 flex flex-col min-w-0 min-h-0 border-r border-[var(--border)]">
               <ChatPane
@@ -130,6 +147,7 @@ export default function LearningInterface({ plan, profile, progress, onTopicComp
                 onRun={handleCodeRun}
                 onCodeChange={setCurrentCode}
               />
+            </div>
             </div>
           </div>
         ) : (
