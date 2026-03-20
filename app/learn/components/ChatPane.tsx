@@ -21,10 +21,21 @@ export default function ChatPane({ topicId, initialMessages, onFunctionCall }: P
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, streamingContent]);
 
-  // Reset messages when topic changes
+  // Load saved messages when topic changes
   useEffect(() => {
     setMessages(initialMessages || []);
     setStreamingContent("");
+
+    if (!initialMessages?.length) {
+      fetch(`/api/chat?topicId=${topicId}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.messages?.length) {
+            setMessages(data.messages);
+          }
+        })
+        .catch(() => {});
+    }
   }, [topicId, initialMessages]);
 
   const sendMessage = useCallback(

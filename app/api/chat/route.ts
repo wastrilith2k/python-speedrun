@@ -7,6 +7,22 @@ import { TOPIC_POOL } from "@/lib/topic-pool";
 import { searchTopicResources } from "@/lib/zep";
 import type { ChatRequest, ChatMessage } from "@/lib/types";
 
+export async function GET(req: NextRequest) {
+  const { userId } = await auth();
+  if (!userId) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+  await ensureTables();
+
+  const topicId = req.nextUrl.searchParams.get("topicId");
+  if (!topicId) {
+    return Response.json({ messages: [] });
+  }
+
+  const messages = await getChatMessages(userId, topicId);
+  return Response.json({ messages });
+}
+
 export async function POST(req: NextRequest) {
   const { userId } = await auth();
   if (!userId) {
