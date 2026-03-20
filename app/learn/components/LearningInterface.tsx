@@ -115,11 +115,11 @@ export default function LearningInterface({ plan, profile, progress, onTopicComp
       />
 
       {/* Main content */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 min-h-0">
         {currentTopicId ? (
-          <div className="flex-1 flex">
+          <div className="flex-1 flex min-h-0">
             {/* Chat + Resources (left) */}
-            <div className="flex-1 flex flex-col min-w-0 border-r border-[var(--border)]">
+            <div className="flex-1 flex flex-col min-w-0 min-h-0 border-r border-[var(--border)]">
               <ChatPane
                 topicId={currentTopicId}
                 onFunctionCall={handleFunctionCall}
