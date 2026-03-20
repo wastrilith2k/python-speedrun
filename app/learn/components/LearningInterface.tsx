@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import type { CoursePlan, UserProfile, TopicProgress, RunResult } from "@/lib/types";
 import Sidebar from "./Sidebar";
 import ChatPane from "./ChatPane";
+import type { ChatPaneHandle } from "./ChatPane";
 import CodeEditor from "./CodeEditor";
 import ResourcePanel from "./ResourcePanel";
 
@@ -18,6 +19,7 @@ export default function LearningInterface({ plan, profile, progress, onTopicComp
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [currentCode, setCurrentCode] = useState("");
   const [lastRunResult, setLastRunResult] = useState<RunResult | null>(null);
+  const chatRef = useRef<ChatPaneHandle>(null);
 
   // Find the first available or in-progress topic
   const firstActive = plan.topics.find(
@@ -44,17 +46,15 @@ export default function LearningInterface({ plan, profile, progress, onTopicComp
     (result: RunResult) => {
       setLastRunResult(result);
 
-      // If there's a sendMessage function exposed by ChatPane, auto-submit code
-      const send = (window as unknown as Record<string, unknown>).__chatSendMessage as
-        | ((msg: string, sub?: { code: string; output: string; challengeId: string }) => Promise<void>)
-        | undefined;
-
-      if (send && currentCode) {
-        send(`I ran my code. Here's the result:\n\`\`\`\n${result.output || result.error || "No output"}\n\`\`\``, {
-          code: currentCode,
-          output: result.output || result.error || "",
-          challengeId: "", // Will be filled by the API based on context
-        });
+      if (chatRef.current && currentCode) {
+        chatRef.current.sendMessage(
+          `I ran my code. Here's the result:\n\`\`\`\n${result.output || result.error || "No output"}\n\`\`\``,
+          {
+            code: currentCode,
+            output: result.output || result.error || "",
+            challengeId: "",
+          }
+        );
       }
     },
     [currentCode]
@@ -121,6 +121,7 @@ export default function LearningInterface({ plan, profile, progress, onTopicComp
             {/* Chat + Resources (left) */}
             <div className="flex-1 flex flex-col min-w-0 min-h-0 border-r border-[var(--border)]">
               <ChatPane
+                ref={chatRef}
                 topicId={currentTopicId}
                 onFunctionCall={handleFunctionCall}
               />

@@ -1,7 +1,11 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useImperativeHandle, forwardRef } from "react";
 import type { ChatMessage, RunResult } from "@/lib/types";
+
+export interface ChatPaneHandle {
+  sendMessage: (msg: string, sub?: { code: string; output: string; challengeId: string }) => Promise<void>;
+}
 
 interface Props {
   topicId: string;
@@ -9,7 +13,7 @@ interface Props {
   onFunctionCall?: (name: string, args: Record<string, unknown>) => void;
 }
 
-export default function ChatPane({ topicId, initialMessages, onFunctionCall }: Props) {
+const ChatPane = forwardRef<ChatPaneHandle, Props>(function ChatPane({ topicId, initialMessages, onFunctionCall }, ref) {
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages || []);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -123,13 +127,8 @@ export default function ChatPane({ topicId, initialMessages, onFunctionCall }: P
     }
   }
 
-  // Expose sendMessage for code submissions from parent
-  useEffect(() => {
-    (window as unknown as Record<string, unknown>).__chatSendMessage = sendMessage;
-    return () => {
-      delete (window as unknown as Record<string, unknown>).__chatSendMessage;
-    };
-  }, [sendMessage]);
+  // Expose sendMessage to parent via ref
+  useImperativeHandle(ref, () => ({ sendMessage }), [sendMessage]);
 
   return (
     <div className="flex flex-col h-full">
@@ -197,7 +196,9 @@ export default function ChatPane({ topicId, initialMessages, onFunctionCall }: P
       </form>
     </div>
   );
-}
+});
+
+export default ChatPane;
 
 // Simple markdown-like rendering for code blocks
 function MessageContent({ content }: { content: string }) {
