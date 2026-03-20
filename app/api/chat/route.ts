@@ -90,11 +90,18 @@ export async function POST(req: NextRequest) {
   // Save user message
   await saveChatMessage(userId, topicId, { role: "user", content: fullMessage });
 
+  // Inject a progress nudge if the conversation is getting long
+  const allMessages = [...history, { role: "user" as const, content: fullMessage }];
+  const exchangeCount = allMessages.filter((m) => m.role === "user").length;
+  if (exchangeCount > topic.concepts.length * 2) {
+    allMessages.push({
+      role: "system" as const,
+      content: `[SYSTEM] This topic has ${topic.concepts.length} concepts and you've had ${exchangeCount} exchanges. If all concepts have been covered, call complete_topic NOW. Do not continue teaching.`,
+    });
+  }
+
   // Prepare trimmed history using compressed summary if available
-  const trimmedHistory = prepareHistory(
-    [...history, { role: "user", content: fullMessage }],
-    chatSummary?.summary
-  );
+  const trimmedHistory = prepareHistory(allMessages, chatSummary?.summary);
 
   // Stream the response
   const encoder = new TextEncoder();
