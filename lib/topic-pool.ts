@@ -46,6 +46,7 @@ export const TOPIC_POOL: Topic[] = [
       "Strings are immutable (like JS, unlike some expectations)",
       "No string interpolation without f-prefix",
       "f'{value=}' for debug printing (3.8+)",
+      "Raw strings (r\"...\") exist — they treat backslashes as literal. Useful for regex and file paths. But they CANNOT end with an odd number of backslashes. Mention this, don't make it a coding challenge.",
     ],
     challenges: [{ id: "strings_01", type: "write" }, { id: "strings_02", type: "translate" }],
     zep_search_terms: ["python f-strings", "python string formatting"],
