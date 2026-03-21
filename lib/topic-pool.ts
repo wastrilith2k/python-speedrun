@@ -39,14 +39,13 @@ export const TOPIC_POOL: Topic[] = [
     relevant_goals: ["any"],
     concepts: [
       "f-strings with expressions", "str methods (split, join, strip, etc.)",
-      "raw strings", "multiline strings", "string multiplication",
+      "multiline strings", "string multiplication",
       "f-string debugging with {expr=}",
     ],
     gotchas: [
       "Strings are immutable (like JS, unlike some expectations)",
       "No string interpolation without f-prefix",
       "f'{value=}' for debug printing (3.8+)",
-      "Raw strings CANNOT end with an odd number of backslashes — r\"\\\" is a syntax error. Use regular string '\\\\' or concatenation instead. Do NOT challenge students to make a raw string containing only a backslash.",
     ],
     challenges: [{ id: "strings_01", type: "write" }, { id: "strings_02", type: "translate" }],
     zep_search_terms: ["python f-strings", "python string formatting"],
