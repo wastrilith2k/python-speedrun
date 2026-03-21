@@ -12,13 +12,13 @@ const openai = new OpenAI({
 
 const MODEL = "nvidia/nemotron-3-nano-30b-a3b:free";
 
-// Function declarations for structured AI responses (OpenAI tool format)
+// Only tool: complete_topic. Everything else (challenges, evaluation) happens in text.
 export const AI_TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
   {
     type: "function",
     function: {
       name: "complete_topic",
-      description: "Call when the student has demonstrated understanding of all concepts in the current topic",
+      description: "Call ONLY when all concepts have been covered and challenges attempted. This ends the topic.",
       parameters: {
         type: "object",
         properties: {
@@ -31,37 +31,6 @@ export const AI_TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
           },
         },
         required: ["score", "assessment"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "present_challenge",
-      description: "Present a code challenge to the student",
-      parameters: {
-        type: "object",
-        properties: {
-          challenge_id: { type: "string" },
-          type: { type: "string", description: "predict, write, translate, refactor, or explain" },
-        },
-        required: ["challenge_id", "type"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "evaluate_code",
-      description: "Evaluate the student's code submission",
-      parameters: {
-        type: "object",
-        properties: {
-          passed: { type: "boolean" },
-          feedback: { type: "string" },
-          hint_level: { type: "number", description: "Which hint to provide next (1-3)" },
-        },
-        required: ["passed", "feedback"],
       },
     },
   },
