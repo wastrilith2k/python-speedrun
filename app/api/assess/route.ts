@@ -168,6 +168,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(response);
   } catch (err) {
     console.error("Assessment error:", err);
-    return NextResponse.json({ error: "Assessment failed" }, { status: 500 });
+    const errMsg = err instanceof Error ? err.message : String(err);
+    const isRateLimit = errMsg.includes("429") || errMsg.toLowerCase().includes("rate");
+    return NextResponse.json(
+      { error: isRateLimit ? "Rate limit hit — wait a moment and try again." : "Assessment failed. Try again." },
+      { status: isRateLimit ? 429 : 500 }
+    );
   }
 }

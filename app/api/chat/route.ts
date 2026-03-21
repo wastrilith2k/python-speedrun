@@ -189,9 +189,18 @@ export async function POST(req: NextRequest) {
         }
       } catch (err) {
         console.error("Chat stream error:", err);
+        const errMsg = err instanceof Error ? err.message : String(err);
+        let userMessage = "Sorry, something went wrong. Try again.";
+        if (errMsg.includes("429") || errMsg.toLowerCase().includes("rate")) {
+          userMessage = "Rate limit hit — the free model only allows ~20 requests/minute. Wait a moment and try again.";
+        } else if (errMsg.includes("401") || errMsg.includes("auth")) {
+          userMessage = "API authentication error. Please contact the site admin.";
+        } else if (errMsg.includes("timeout") || errMsg.includes("ETIMEDOUT")) {
+          userMessage = "The AI took too long to respond. Try sending a shorter message.";
+        }
         controller.enqueue(
           encoder.encode(
-            `data: ${JSON.stringify({ type: "text", content: "Sorry, something went wrong. Try again." })}\n\n`
+            `data: ${JSON.stringify({ type: "text", content: userMessage })}\n\n`
           )
         );
         controller.enqueue(encoder.encode("data: [DONE]\n\n"));
