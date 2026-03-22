@@ -43,3 +43,4 @@ local.db
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+.env.vercel

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback, useImperativeHandle, forwardRef } from "react";
-import type { ChatMessage, RunResult } from "@/lib/types";
+import type { ChatMessage } from "@/lib/types";
 
 export interface ChatPaneHandle {
   sendMessage: (msg: string, sub?: { code: string; output: string; challengeId: string }) => Promise<void>;
@@ -31,9 +31,10 @@ const ChatPane = forwardRef<ChatPaneHandle, Props>(function ChatPane({ topicId, 
   useEffect(() => {
     setMessages(initialMessages || []);
     setStreamingContent("");
+    setStagedCode(null);
 
     if (!initialMessages?.length) {
-      fetch(`/api/chat?topicId=${topicId}`)
+      fetch(`/api/chat?topicId=${encodeURIComponent(topicId)}`)
         .then((res) => res.json())
         .then((data) => {
           if (data.messages?.length) {
@@ -94,7 +95,6 @@ const ChatPane = forwardRef<ChatPaneHandle, Props>(function ChatPane({ topicId, 
                 fullContent += parsed.content;
                 setStreamingContent(fullContent);
               } else if (parsed.type === "function_call") {
-                console.log("[SSE] function_call received:", parsed.name, parsed.args);
                 onFunctionCall?.(parsed.name, parsed.args);
               }
             } catch {

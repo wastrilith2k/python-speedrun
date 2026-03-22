@@ -1,6 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextRequest } from "next/server";
-import { streamChat, prepareHistory, compressHistory } from "@/lib/ai";
+import { streamChat, prepareHistory, compressHistory, sanitizeUserInput, sanitizeLLMOutput } from "@/lib/ai";
 import { getUser, getChatMessages, saveChatMessage, getCoursePlan, getChatSummary, saveChatSummary, ensureTables } from "@/lib/db";
 import { buildTeachingPrompt, buildTopicIntroMessage } from "@/lib/prompts";
 import { TOPIC_POOL } from "@/lib/topic-pool";
@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
   await ensureTables();
 
   const topicId = req.nextUrl.searchParams.get("topicId");
-  if (!topicId) {
+  if (!topicId || !TOPIC_POOL.some((t) => t.id === topicId)) {
     return Response.json({ messages: [] });
   }
 
@@ -81,14 +81,15 @@ export async function POST(req: NextRequest) {
   // Build the teaching prompt
   const systemPrompt = buildTeachingPrompt(topic, profile, courseTopic, zepContext);
 
-  // Prepare the message (include code submission context if present)
-  let fullMessage = message;
+  // Prepare and sanitize the message
+  let fullMessage = sanitizeUserInput(message);
   if (codeSubmission) {
-    fullMessage = `${message}\n\n[CODE SUBMISSION]\nChallenge: ${codeSubmission.challengeId || "current"}\n\`\`\`python\n${codeSubmission.code}\n\`\`\`\nOutput: ${codeSubmission.output}`;
+    const sanitizedCode = sanitizeUserInput(codeSubmission.code || "");
+    const sanitizedOutput = sanitizeUserInput(codeSubmission.output || "");
+    fullMessage = `${fullMessage}\n\n[CODE SUBMISSION]\nChallenge: ${codeSubmission.challengeId || "current"}\n\`\`\`python\n${sanitizedCode}\n\`\`\`\nOutput: ${sanitizedOutput}`;
   }
 
-  // Save user message
-  await saveChatMessage(userId, topicId, { role: "user", content: fullMessage });
+  // NOTE: User message saved after stream starts successfully (see below)
 
   // Inject a progress nudge if the conversation is getting long
   const allMessages = [...history, { role: "user" as const, content: fullMessage }];
@@ -143,7 +144,7 @@ export async function POST(req: NextRequest) {
           // Check finish reason to emit completed tool calls (once only)
           const finishReason = chunk.choices[0]?.finish_reason;
           if ((finishReason === "tool_calls" || finishReason === "stop") && Object.keys(toolCallBuffers).length > 0) {
-            for (const [idx, buf] of Object.entries(toolCallBuffers)) {
+            for (const buf of Object.values(toolCallBuffers)) {
               try {
                 const args = JSON.parse(buf.args);
                 controller.enqueue(
@@ -166,27 +167,33 @@ export async function POST(req: NextRequest) {
           }
         }
 
-        // Save assistant response
-        if (fullContent) {
-          await saveChatMessage(userId, topicId, { role: "assistant", content: fullContent });
+        // Sanitize LLM output
+        const cleanContent = sanitizeLLMOutput(fullContent);
+
+        // Save user message + assistant response together (avoids orphaned user messages on error)
+        await saveChatMessage(userId, topicId, { role: "user", content: fullMessage });
+        if (cleanContent) {
+          await saveChatMessage(userId, topicId, { role: "assistant", content: cleanContent });
+        }
+
+        // Compress history before closing if it's getting long
+        const totalMessages = history.length + 2;
+        const lastCompressed = chatSummary?.messageCount || 0;
+        if (totalMessages - lastCompressed >= 8) {
+          const savedMessages = await getChatMessages(userId, topicId);
+          const toCompress = chatSummary?.summary
+            ? [{ role: "system" as const, content: `[Prior summary]: ${chatSummary.summary}` }, ...savedMessages.slice(lastCompressed)]
+            : savedMessages;
+          try {
+            const summary = await compressHistory(toCompress);
+            await saveChatSummary(userId, topicId, summary, savedMessages.length);
+          } catch (err) {
+            console.error("Compression failed:", err);
+          }
         }
 
         controller.enqueue(encoder.encode("data: [DONE]\n\n"));
         controller.close();
-
-        // Compress history in background if it's getting long
-        const totalMessages = history.length + 2; // +user +assistant
-        const lastCompressed = chatSummary?.messageCount || 0;
-        if (totalMessages - lastCompressed >= 8) {
-          // Get messages since last compression
-          const allMessages = await getChatMessages(userId, topicId);
-          const toCompress = chatSummary?.summary
-            ? [{ role: "system" as const, content: `[Prior summary]: ${chatSummary.summary}` }, ...allMessages.slice(lastCompressed)]
-            : allMessages;
-          compressHistory(toCompress)
-            .then((summary) => saveChatSummary(userId, topicId, summary, allMessages.length))
-            .catch((err) => console.error("Compression failed:", err));
-        }
       } catch (err) {
         console.error("Chat stream error:", err);
         const errMsg = err instanceof Error ? err.message : String(err);

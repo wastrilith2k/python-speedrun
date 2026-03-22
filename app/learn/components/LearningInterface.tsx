@@ -58,11 +58,12 @@ export default function LearningInterface({ plan, profile, progress, onTopicComp
   );
 
   const [topicCompleted, setTopicCompleted] = useState<{ score: number; assessment: string } | null>(null);
+  const completingRef = useRef(false);
 
   const handleFunctionCall = useCallback(
     (name: string, args: Record<string, unknown>) => {
-      console.log("[FunctionCall]", name, args);
-      if (name === "complete_topic" && currentTopicId) {
+      if (name === "complete_topic" && currentTopicId && !completingRef.current) {
+        completingRef.current = true;
         const score = (args.score as number) || 0;
         const assessment = (args.assessment as string) || "";
         setTopicCompleted({ score, assessment });
@@ -84,7 +85,8 @@ export default function LearningInterface({ plan, profile, progress, onTopicComp
               onTopicComplete(currentTopicId!, data.progress);
             }
           })
-          .catch((err) => console.error("Progress update failed:", err));
+          .catch(() => {})
+          .finally(() => { completingRef.current = false; });
       }
     },
     [currentTopicId, onTopicComplete]

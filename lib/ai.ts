@@ -11,6 +11,28 @@ const openai = new OpenAI({
 });
 
 const MODEL = "nvidia/nemotron-3-nano-30b-a3b:free";
+const OPENROUTER_EXTRAS = { reasoning: { effort: "none" } } as Record<string, unknown>;
+
+// Sanitize user input before sending to LLM — strip prompt injection attempts
+export function sanitizeUserInput(input: string): string {
+  // Limit length to prevent context stuffing
+  const truncated = input.slice(0, 10000);
+  // Strip common prompt injection markers
+  return truncated
+    .replace(/\[SYSTEM\]/gi, "[USER_TEXT]")
+    .replace(/\[INST\]/gi, "[USER_TEXT]")
+    .replace(/<\|im_start\|>/gi, "")
+    .replace(/<\|im_end\|>/gi, "")
+    .replace(/<<SYS>>/gi, "")
+    .replace(/<\/SYS>/gi, "");
+}
+
+// Sanitize LLM output before sending to client — strip any leaked system content
+export function sanitizeLLMOutput(output: string): string {
+  return output
+    .replace(/<\|im_start\|>[\s\S]*?<\|im_end\|>/g, "")
+    .replace(/<<SYS>>[\s\S]*?<\/SYS>/g, "");
+}
 
 // Only tool: complete_topic. Everything else (challenges, evaluation) happens in text.
 export const AI_TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
@@ -73,7 +95,7 @@ export async function streamChat(
     messages,
     tools: AI_TOOLS,
     stream: true,
-    ...({ reasoning: { effort: "none" } } as Record<string, unknown>),
+    ...OPENROUTER_EXTRAS,
   });
 
   return stream;
@@ -90,7 +112,7 @@ export async function chat(
   const result = await openai.chat.completions.create({
     model: MODEL,
     messages,
-    ...({ reasoning: { effort: "none" } } as Record<string, unknown>),
+    ...OPENROUTER_EXTRAS,
   });
 
   return result;
@@ -116,7 +138,7 @@ Keep it under 300 words. Be factual and specific.`,
       },
       { role: "user", content: transcript },
     ],
-    ...({ reasoning: { effort: "none" } } as Record<string, unknown>),
+    ...OPENROUTER_EXTRAS,
   });
 
   return result.choices[0]?.message?.content || "";
@@ -125,16 +147,16 @@ Keep it under 300 words. Be factual and specific.`,
 // Build history for the LLM: compressed summary + recent messages
 export function prepareHistory(messages: ChatMessage[], compressedSummary?: string | null): ChatMessage[] {
   if (!compressedSummary) {
-    // No compression yet — just use recent messages to stay within context
     if (messages.length <= 6) return messages;
     return [messages[0], ...messages.slice(-5)];
   }
 
-  // Use compressed summary + last 4 messages
+  // Keep the intro message (first assistant message) for context
+  const intro = messages.find((m) => m.role === "assistant");
   const recent = messages.slice(-4);
   const summary: ChatMessage = {
     role: "system",
     content: `[Previous conversation summary]\n${compressedSummary}`,
   };
-  return [summary, ...recent];
+  return intro ? [intro, summary, ...recent] : [summary, ...recent];
 }
